@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CYBOTICS — SecGuess</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07090f;--bg2:#0d1117;--bg3:#141b24;
+  --teal:#00e5c8;--teal2:#00b5a0;--teal-dim:#00e5c815;
+  --pink:#ff3e8a;--amber:#ffb700;--amber-dim:#ffb70018;
+  --green:#00e87a;--green-dim:#00e87a18;
+  --red:#ff4757;--red-dim:#ff475718;
+  --purple:#a855f7;
+  --border:#1a2535;--text:#b8cce0;--text-dim:#3d5570;
+  --mono:'JetBrains Mono',monospace;--display:'Syne',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg)}
+body{font-family:var(--mono);display:flex;flex-direction:column;align-items:center;position:relative}
+body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:48px 48px;opacity:.3;pointer-events:none;z-index:0}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,229,200,.01) 3px,rgba(0,229,200,.01) 4px);pointer-events:none;z-index:0}
+
+.page{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;z-index:1;overflow-y:auto}
+
+/* SPLASH */
+#splash{justify-content:center}
+.splash-inner{text-align:center;padding:2.5rem 1.5rem;max-width:440px;width:100%}
+.club-tag{font-size:11px;letter-spacing:.2em;color:var(--teal);margin-bottom:1rem;opacity:.7}
+.splash-title{font-family:var(--display);font-size:clamp(2.8rem,11vw,4.5rem);font-weight:800;color:#fff;line-height:.92;margin-bottom:.6rem}
+.splash-title span{color:var(--teal)}
+.splash-sub{font-size:12px;color:var(--text-dim);margin-bottom:2rem;letter-spacing:.04em;line-height:1.8}
+.modes{display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;margin-bottom:1.75rem}
+.mode-btn{font-family:var(--mono);font-size:11px;padding:.5rem 1.1rem;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text-dim);cursor:pointer;letter-spacing:.05em;transition:all .15s}
+.mode-btn.active,.mode-btn:hover{border-color:var(--teal);color:var(--teal);background:var(--teal-dim)}
+.start-btn{font-family:var(--mono);font-size:13px;padding:.8rem 2.2rem;border-radius:7px;border:none;background:var(--teal);color:var(--bg);font-weight:700;cursor:pointer;letter-spacing:.06em;transition:background .15s}
+.start-btn:hover{background:var(--teal2)}
+.gyro-note{font-size:11px;color:var(--text-dim);margin-top:1.1rem;line-height:1.6}
+
+/* HUD */
+#hud{position:fixed;top:0;left:0;right:0;z-index:100;padding:.55rem 1rem;display:none;align-items:center;justify-content:space-between;background:rgba(7,9,15,.85);backdrop-filter:blur(4px);border-bottom:1px solid var(--border)}
+.hud-score{font-size:13px;color:var(--teal);font-weight:700}
+.hud-streak{font-size:11px;color:var(--amber);min-width:80px}
+.hud-q{font-size:11px;color:var(--text-dim)}
+#prog{position:fixed;top:0;left:0;height:2px;background:var(--teal);z-index:200;transition:width .4s ease;width:0%}
+
+/* GAME */
+#game{display:none;flex-direction:column;align-items:center;padding-top:50px}
+.stage{flex:1;width:100%;display:flex;align-items:center;justify-content:center;perspective:1200px;padding:1rem}
+.card-wrap{width:100%;max-width:430px;transform-style:preserve-3d;transition:transform .1s ease-out}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:18px;overflow:hidden;animation:cin .35s cubic-bezier(.22,1,.36,1) both}
+.card.out{animation:cout .22s ease forwards}
+@keyframes cin{from{opacity:0;transform:translateY(28px) scale(.95)}to{opacity:1;transform:none}}
+@keyframes cout{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-24px) scale(.96)}}
+
+.card-top{padding:.65rem 1.2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem}
+.dot{width:9px;height:9px;border-radius:50%}.dot-r{background:#ff5f57}.dot-y{background:#febc2e}.dot-g{background:#28c840}
+.cat-badge{margin-left:auto;font-size:10px;padding:2px 10px;border-radius:20px;border:1px solid;letter-spacing:.08em;font-weight:700}
+.card-body{padding:1.2rem}
+.sc-lbl{font-size:10px;color:var(--text-dim);letter-spacing:.12em;margin-bottom:.55rem}
+.sc-text{font-size:13px;line-height:1.75;color:var(--text);margin-bottom:.9rem}
+.kw-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:.9rem}
+.kw{font-size:11px;padding:2px 9px;border-radius:20px;border:1px solid var(--border);color:var(--text-dim)}
+.q-text{font-family:var(--display);font-size:15px;font-weight:700;color:#fff;margin-bottom:.9rem;line-height:1.35}
+.choices{display:flex;flex-direction:column;gap:.45rem}
+.choice{display:flex;align-items:flex-start;gap:.75rem;padding:.7rem .95rem;border-radius:8px;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:12px;line-height:1.5;color:var(--text);transition:border-color .12s,background .12s}
+.choice:hover:not(.locked){border-color:var(--teal);background:var(--teal-dim)}
+.choice.correct{border-color:var(--green);background:var(--green-dim)}
+.choice.wrong{border-color:var(--red);background:var(--red-dim)}
+.choice.locked{cursor:default}
+.ck{font-size:11px;color:var(--text-dim);min-width:16px;padding-top:1px;font-weight:700}
+.choice.correct .ck{color:var(--green)}.choice.wrong .ck{color:var(--red)}
+.hint-area{margin-top:.8rem}
+.hint-btn{font-family:var(--mono);font-size:11px;padding:.4rem .9rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--amber);cursor:pointer;letter-spacing:.04em;transition:all .15s}
+.hint-btn:hover:not(:disabled){border-color:var(--amber);background:var(--amber-dim)}
+.hint-btn:disabled{opacity:.35;cursor:default}
+.hint-text{font-size:12px;color:var(--amber);margin-top:.55rem;padding:.55rem .85rem;border-left:2px solid var(--amber);background:var(--amber-dim);border-radius:0 5px 5px 0;line-height:1.6;animation:fu .2s ease}
+.fb{display:none;margin-top:.8rem;padding:.7rem .95rem;border-radius:7px;font-size:12px;line-height:1.65;border-left:3px solid}
+.fb.show{display:block;animation:fu .25s ease}
+.fb.fb-ok{border-color:var(--green);background:var(--green-dim);color:var(--text)}
+.fb.fb-no{border-color:var(--red);background:var(--red-dim);color:var(--text)}
+.fb-lbl{font-size:10px;font-weight:700;letter-spacing:.1em;margin-bottom:.3rem}
+.fb-ok .fb-lbl{color:var(--green)}.fb-no .fb-lbl{color:var(--red)}
+@keyframes fu{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+.bot{width:100%;max-width:430px;padding:.65rem 1rem 1.5rem;display:flex;align-items:center;gap:.6rem}
+.nav-btn{font-family:var(--mono);font-size:12px;padding:.5rem 1rem;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer;letter-spacing:.04em;transition:all .12s;white-space:nowrap}
+.nav-btn:hover:not(:disabled){border-color:var(--teal);color:var(--teal)}
+.nav-btn:disabled{opacity:.25;cursor:default}
+.tilt-note{font-size:10px;color:var(--text-dim);text-align:center;flex:1;line-height:1.5}
+
+/* END */
+#endscreen{display:none;justify-content:center;padding:3rem 1.5rem}
+.end-wrap{text-align:center;max-width:420px;width:100%}
+.end-sc{font-family:var(--display);font-size:5rem;font-weight:800;color:var(--teal);line-height:1}
+.end-lbl{font-size:12px;color:var(--text-dim);margin:.3rem 0 1.5rem;letter-spacing:.06em}
+.end-dots{display:flex;justify-content:center;flex-wrap:wrap;gap:4px;margin-bottom:1.5rem;max-width:300px;margin-left:auto;margin-right:auto}
+.ed{width:26px;height:7px;border-radius:4px;background:var(--border)}
+.ed.g{background:var(--green)}.ed.r{background:var(--red)}
+.end-title{font-family:var(--display);font-size:1.35rem;font-weight:700;color:#fff;margin-bottom:.5rem}
+.end-msg{font-size:12px;color:var(--text-dim);line-height:1.75;margin-bottom:2rem}
+.rbtn{font-family:var(--mono);font-size:13px;padding:.8rem 2rem;border-radius:7px;border:none;background:var(--teal);color:var(--bg);font-weight:700;cursor:pointer;letter-spacing:.05em}
+.rbtn:hover{background:var(--teal2)}
+
+/* PERM */
+#perm{display:none;position:fixed;inset:0;background:rgba(7,9,15,.93);z-index:500;align-items:center;justify-content:center;text-align:center;padding:2rem}
+#perm.show{display:flex}
+.perm-box{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:2rem;max-width:320px}
+.perm-title{font-family:var(--display);font-size:1.2rem;color:#fff;margin-bottom:.75rem}
+.perm-msg{font-size:12px;color:var(--text-dim);line-height:1.7;margin-bottom:1.5rem}
+.perm-btn{font-family:var(--mono);font-size:12px;padding:.6rem 1.5rem;border-radius:6px;border:none;background:var(--teal);color:var(--bg);cursor:pointer;font-weight:700}
+</style>
+</head>
+<body>
+<div id="prog"></div>
+
+<!-- SPLASH -->
+<div class="page" id="splash">
+<div class="splash-inner">
+  <div class="club-tag">// CYBOTICS CLUB · ESITH CASABLANCA</div>
+  <div class="splash-title">Sec<span>Guess</span></div>
+  <div class="splash-sub">Read the scenario · spot the keywords<br>Guess the attack · earn points + streaks</div>
+  <div class="modes">
+    <button class="mode-btn active" id="m-all" onclick="setMode('all')">All Topics</button>
+    <button class="mode-btn" id="m-web" onclick="setMode('web')">Web Attacks</button>
+    <button class="mode-btn" id="m-network" onclick="setMode('network')">Network</button>
+    <button class="mode-btn" id="m-malware" onclick="setMode('malware')">Malware &amp; AI</button>
+  </div>
+  <button class="start-btn" onclick="startGame()">Start Session →</button>
+  <div class="gyro-note">📱 Tilt phone left/right or up/down to change cards<br>💻 Use arrow keys or click Prev / Next</div>
+</div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div><div class="hud-score">⬡ <span id="hs">0</span></div><div class="hud-streak" id="hstr"></div></div>
+  <div class="hud-q" id="hq">1/12</div>
+</div>
+
+<!-- GAME -->
+<div class="page" id="game">
+  <div class="stage" id="stage">
+    <div class="card-wrap" id="cwrap">
+      <div class="card" id="card"></div>
+    </div>
+  </div>
+  <div class="bot">
+    <button class="nav-btn" id="bprev" onclick="prevCard()" disabled>← prev</button>
+    <div class="tilt-note" id="tnote">tilt or use arrows / buttons</div>
+    <button class="nav-btn" id="bnext" onclick="nextCard()">next →</button>
+  </div>
+</div>
+
+<!-- END -->
+<div class="page" id="endscreen">
+<div class="end-wrap">
+  <div class="club-tag">// SESSION COMPLETE</div>
+  <div class="end-sc" id="esc">0</div>
+  <div class="end-lbl"><span id="ecor">0</span>/<span id="etot">0</span> correct answers</div>
+  <div class="end-dots" id="edots"></div>
+  <div class="end-title" id="etitle"></div>
+  <div class="end-msg" id="emsg"></div>
+  <button class="rbtn" onclick="goSplash()">Play Again →</button>
+</div>
+</div>
+
+<!-- PERMISSION -->
+<div id="perm">
+  <div class="perm-box">
+    <div class="perm-title">Enable Tilt Control</div>
+    <div class="perm-msg">SecGuess uses your phone's gyroscope to flip cards. Tap below to allow motion access.</div>
+    <button class="perm-btn" onclick="reqGyro()">Allow Motion →</button>
+  </div>
+</div>
+
+<script>
+const CARDS = [
+  {cat:"SQL Injection",color:"#ff3e8a",mode:"web",
+   scenario:"A developer builds a login form and pastes user input directly into a database query string. No sanitization. No parameterization. Just raw string concatenation.",
+   keywords:["database","query","'OR'1'='1","bypass","authentication"],
+   q:"What attack does unsanitized database query input enable?",
+   choices:["Cross-Site Scripting","SQL Injection","Command Injection","Path Traversal"],correct:1,
+   hint:"Try typing a single quote ' into the username field.",
+   explain:"SQL Injection manipulates database queries via unsanitized input. Fix: prepared statements with parameterized queries."},
+
+  {cat:"Stored XSS",color:"#ff3e8a",mode:"web",
+   scenario:"A blog app displays user comments verbatim in HTML. An attacker posts a comment containing a script tag. Every visitor who loads the page runs the attacker's code in their browser.",
+   keywords:["browser","script","DOM","cookie","persistent"],
+   q:"What attack stores malicious scripts server-side to run in every visitor's browser?",
+   choices:["CSRF","Reflected XSS","Stored XSS","IDOR"],correct:2,
+   hint:"The script is saved in the database, not just reflected in a URL.",
+   explain:"Stored XSS persists in the database and executes for every visitor. Attackers steal cookies, hijack sessions. Fix: HTML-escape all output, use CSP headers."},
+
+  {cat:"CSRF",color:"#ff3e8a",mode:"web",
+   scenario:"A user is logged into their bank. They visit a malicious site that silently auto-submits a hidden form to the bank's transfer endpoint. The bank processes it as a legitimate request.",
+   keywords:["forged request","cookie","origin","hidden form","state-change"],
+   q:"What attack exploits the browser automatically attaching cookies to every request?",
+   choices:["XSS","CSRF","Clickjacking","Open Redirect"],correct:1,
+   hint:"The server can't distinguish the real site's request from a forged one.",
+   explain:"CSRF: browsers attach valid cookies to all requests, including forged ones. Fix: CSRF tokens + SameSite cookie attribute on all state-changing endpoints."},
+
+  {cat:"IDOR",color:"#ff3e8a",mode:"web",
+   scenario:"An API returns your profile at /api/users/1042. An attacker changes the number to 1041 and gets another user's private data — no error, no restriction.",
+   keywords:["ID","authorization","API","access control","ownership"],
+   q:"What vulnerability exposes objects via predictable IDs with no ownership check?",
+   choices:["Broken Auth","IDOR","Path Traversal","SSRF"],correct:1,
+   hint:"The server checks you're logged in, not that the resource belongs to you.",
+   explain:"Insecure Direct Object Reference: missing object-level authorization. Fix: always verify the user owns the resource, not just that they're authenticated."},
+
+  {cat:"Command Injection",color:"#ffb700",mode:"web",
+   scenario:"A web tool accepts a hostname and runs ping on the server. User input goes directly into the shell. An attacker appends ; cat /etc/shadow and both commands execute.",
+   keywords:["shell","OS","semicolon","exec","server-side"],
+   q:"What happens when unsanitized user input reaches an OS shell command?",
+   choices:["SQL Injection","XSS","Command Injection","Path Traversal"],correct:2,
+   hint:"The semicolon ; is a shell command separator.",
+   explain:"OS Command Injection: unsanitized input lets attackers chain arbitrary shell commands. Fix: use parameterized exec APIs that never invoke a shell."},
+
+  {cat:"Path Traversal",color:"#ffb700",mode:"web",
+   scenario:"A file download endpoint reads files from /var/www/public/ based on a URL parameter. An attacker uses ../../etc/passwd to escape the intended directory and read sensitive system files.",
+   keywords:["../","directory","escape","filesystem","read"],
+   q:"What character sequence lets attackers navigate outside the intended directory?",
+   choices:["NULL byte","../ dot-dot-slash","%00 encoding","Semicolon"],correct:1,
+   hint:"Moving up the tree, one level at a time.",
+   explain:"Path Traversal: ../ sequences escape the allowed directory. Fix: resolve the real path and verify it starts with the allowed base directory before opening any file."},
+
+  {cat:"JWT 'none' Attack",color:"#ff3e8a",mode:"web",
+   scenario:"A web app uses JWT for auth. An attacker changes the header's alg field to 'none', removes the signature, and sets role: admin. The server accepts the unsigned token without error.",
+   keywords:["token","algorithm","signature","none","admin","header"],
+   q:"What vulnerability allows forging JWT tokens by disabling signature verification?",
+   choices:["Token Replay","JWT 'none' Attack","Session Fixation","Brute Force"],correct:1,
+   hint:"Some JWT libraries trust whatever algorithm the token itself declares.",
+   explain:"JWT 'none' attack: if the library respects alg:none, it skips verification entirely. Fix: whitelist allowed algorithms server-side — never accept 'none'."},
+
+  {cat:"Phishing",color:"#00e5c8",mode:"network",
+   scenario:"Employees receive an email that looks exactly like an IT security alert, asking them to verify credentials on a portal with a near-identical domain name — one character off.",
+   keywords:["email","impersonation","credential","domain","urgency"],
+   q:"What targeted social attack combines impersonation and fake login pages?",
+   choices:["Spear Phishing","Ransomware","MitM","DNS Spoofing"],correct:0,
+   hint:"It's highly targeted at specific individuals within an organization.",
+   explain:"Spear Phishing uses personalized context to bypass skepticism. It's the #1 initial access vector in enterprise breaches. Defense: security awareness training + MFA."},
+
+  {cat:"Man-in-the-Middle",color:"#00e5c8",mode:"network",
+   scenario:"On a public WiFi, an attacker silently intercepts traffic between a user and their bank, reading credentials and modifying transaction amounts without either party noticing.",
+   keywords:["intercept","WiFi","relay","eavesdrop","traffic"],
+   q:"What attack silently positions an attacker between two communicating parties?",
+   choices:["DDoS","MitM","Replay Attack","Port Scanning"],correct:1,
+   hint:"The attacker sits between the two parties, relaying modified messages.",
+   explain:"MitM intercepts and optionally modifies communications. Used on public WiFi via ARP poisoning or rogue APs. Fix: HTTPS/TLS everywhere + certificate pinning."},
+
+  {cat:"Port Scanning",color:"#00e5c8",mode:"network",
+   scenario:"Before an attack, a security researcher sends crafted TCP packets to hundreds of ports to discover which services are running, which OS is in use, and what firewall rules exist.",
+   keywords:["reconnaissance","TCP","open ports","nmap","fingerprint"],
+   q:"What pre-attack technique maps open ports and running services on a target?",
+   choices:["Fuzzing","Port Scanning","ARP Poisoning","Packet Sniffing"],correct:1,
+   hint:"Nmap is the most famous tool for this phase.",
+   explain:"Port Scanning is the RECON phase: it maps the attack surface by identifying open ports and their services. Nmap is the industry-standard tool."},
+
+  {cat:"DNS Spoofing",color:"#00e5c8",mode:"network",
+   scenario:"An attacker poisons a DNS resolver's cache with a fake record, redirecting all users querying a legitimate domain to a malicious IP — silently and without any browser warning.",
+   keywords:["DNS","cache","record","redirect","resolver"],
+   q:"What attack corrupts DNS cache to redirect users to attacker-controlled servers?",
+   choices:["IP Spoofing","DNS Cache Poisoning","BGP Hijacking","ARP Flooding"],correct:1,
+   hint:"The resolver remembers the wrong IP address for the domain.",
+   explain:"DNS Cache Poisoning injects fake DNS records. Fix: DNSSEC cryptographically signs DNS records to prevent tampering."},
+
+  {cat:"Ransomware",color:"#a855f7",mode:"malware",
+   scenario:"After opening a phishing attachment, malware silently encrypts every file on the network, then displays a ransom note demanding cryptocurrency for the decryption key.",
+   keywords:["encrypt","ransom","bitcoin","decryption","malware"],
+   q:"What malware holds files hostage and demands payment for recovery?",
+   choices:["Spyware","Rootkit","Ransomware","Trojan"],correct:2,
+   hint:"WannaCry and LockBit are infamous examples.",
+   explain:"Ransomware encrypts victim data and demands payment. Modern variants exfiltrate data first (double extortion). Fix: offline backups, EDR, email filtering."},
+
+  {cat:"Prompt Injection",color:"#a855f7",mode:"malware",
+   scenario:"A user interacts with an AI assistant integrated into a company system. By crafting a special message, they override the system's instructions, making the AI reveal confidential data or perform unauthorized actions.",
+   keywords:["LLM","AI","system prompt","override","instructions"],
+   q:"What attack targets AI language models by hijacking their system instructions?",
+   choices:["Model Poisoning","Prompt Injection","Adversarial Example","Data Extraction"],correct:1,
+   hint:"It's listed as the #1 vulnerability in OWASP LLM Top 10.",
+   explain:"Prompt Injection: malicious input overrides system prompts. Critical for any LLM-powered application. Defense: input/output validation + privilege separation."},
+
+  {cat:"Rootkit",color:"#a855f7",mode:"malware",
+   scenario:"After gaining initial access, an attacker installs software at kernel level that hides its own presence, other malware, and network connections — surviving full antivirus scans.",
+   keywords:["stealth","kernel","persistence","hide","undetectable"],
+   q:"What malware type operates at kernel level to conceal its presence from detection?",
+   choices:["Worm","Rootkit","Adware","Keylogger"],correct:1,
+   hint:"It modifies the OS itself to stay invisible.",
+   explain:"Rootkits modify the kernel to hide processes, files, and connections. Detection requires out-of-band forensics or trusted boot (Secure Boot + integrity checks)."},
+
+  {cat:"Zero-Day",color:"#a855f7",mode:"malware",
+   scenario:"A researcher discovers a critical vulnerability in widely-used software that has never been reported to the vendor. No patch exists. Attackers are actively exploiting it in the wild.",
+   keywords:["undisclosed","no patch","0day","exploit","vendor"],
+   q:"What term describes an unknown vulnerability with no available fix?",
+   choices:["CVE","Zero-Day","Buffer Overflow","Logic Bomb"],correct:1,
+   hint:"Zero days = how many days the vendor had to fix it before it was exploited.",
+   explain:"Zero-Day vulnerabilities are unknown to the vendor — no patch exists at exploitation time. Sold on dark markets for thousands to millions of dollars."},
+
+  {cat:"Social Engineering",color:"#00e5c8",mode:"network",
+   scenario:"An attacker calls an employee pretending to be IT support, creates urgency around a 'security incident', and convinces the employee to reveal their password or install remote access software.",
+   keywords:["phone","impersonation","urgency","trust","human"],
+   q:"What attack exploits human psychology rather than technical vulnerabilities?",
+   choices:["Brute Force","Social Engineering","DDoS","Fuzzing"],correct:1,
+   hint:"The weakest link in security is often the human, not the machine.",
+   explain:"Social Engineering bypasses all technical defenses by manipulating people. Variants: vishing (voice), smishing (SMS), pretexting. Fix: security awareness training."}
+];
+
+let mode='all', cards=[], cur=0, score=0, streak=0;
+let answered=[], hinted=[], gyroOn=false, tiltLock=false, lastG=null, lastB=null;
+
+function setMode(m){
+  mode=m;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  const map={all:'m-all',web:'m-web',network:'m-network',malware:'m-malware'};
+  document.getElementById(map[m]).classList.add('active');
+}
+
+function shuffle(a){const r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]]}return r}
+
+function startGame(){
+  cards=shuffle(mode==='all'?CARDS:CARDS.filter(c=>c.mode===mode));
+  if(!cards.length)cards=shuffle(CARDS);
+  cur=0;score=0;streak=0;
+  answered=new Array(cards.length).fill(null);
+  hinted=new Array(cards.length).fill(false);
+  show('game');
+  document.getElementById('hud').style.display='flex';
+  setupGyro();
+  renderCard();
+}
+
+function show(id){
+  ['splash','game','endscreen'].forEach(p=>{
+    const el=document.getElementById(p);
+    el.style.display=p===id?(p==='splash'||p==='endscreen'?'flex':'flex'):'none';
+  });
+}
+
+function setupGyro(){
+  if(typeof DeviceOrientationEvent==='undefined')return;
+  if(typeof DeviceOrientationEvent.requestPermission==='function'){
+    document.getElementById('perm').classList.add('show');
+  } else {
+    window.addEventListener('deviceorientation',handleTilt,{passive:true});
+    gyroOn=true;
+    document.getElementById('tnote').textContent='tilt ← → or ↑ ↓ to change cards';
+  }
+}
+
+function reqGyro(){
+  DeviceOrientationEvent.requestPermission().then(s=>{
+    if(s==='granted'){
+      window.addEventListener('deviceorientation',handleTilt,{passive:true});
+      gyroOn=true;
+      document.getElementById('tnote').textContent='tilt ← → or ↑ ↓ to change cards';
+    }
+    document.getElementById('perm').classList.remove('show');
+  }).catch(()=>document.getElementById('perm').classList.remove('show'));
+}
+
+function handleTilt(e){
+  if(tiltLock)return;
+  const g=e.gamma||0, b=e.beta||0;
+  const wrap=document.getElementById('cwrap');
+  if(wrap){wrap.style.transform=`rotateX(${Math.max(-10,Math.min(10,-b*0.25))}deg) rotateY(${Math.max(-10,Math.min(10,g*0.4))}deg)`}
+  if(lastG===null){lastG=g;lastB=b;return}
+  const dg=g-lastG, db=b-lastB;
+  if(dg>16||db>20){tiltLock=true;nextCard();setTimeout(()=>{tiltLock=false;lastG=null;lastB=null},900)}
+  else if(dg<-16||db<-20){tiltLock=true;prevCard();setTimeout(()=>{tiltLock=false;lastG=null;lastB=null},900)}
+  lastG=g;lastB=b;
+}
+
+function renderCard(anim){
+  const q=cards[cur], el=document.getElementById('card');
+  if(anim){
+    el.classList.add('out');
+    setTimeout(()=>{el.classList.remove('out');buildCard(q,el)},200);
+  } else {
+    buildCard(q,el);
+  }
+  document.getElementById('bprev').disabled=cur===0;
+  document.getElementById('bnext').textContent=cur===cards.length-1?'finish →':'next →';
+  document.getElementById('prog').style.width=((cur+1)/cards.length*100)+'%';
+  updateHUD();
+}
+
+function buildCard(q,el){
+  const ans=answered[cur], hin=hinted[cur];
+  const choicesHTML=q.choices.map((c,i)=>{
+    let cls='choice';
+    if(ans!==null){cls+=' locked';if(i===q.correct)cls+=' correct';else if(ans===i)cls+=' wrong';}
+    return`<div class="${cls}" onclick="pick(${i})"><span class="ck">${String.fromCharCode(65+i)}</span><span>${c}</span></div>`;
+  }).join('');
+  const fb=ans!==null;
+  const fbCls=`fb${fb?' show':''}${fb?(ans===q.correct?' fb-ok':' fb-no'):''}`;
+  const fbLbl=ans===q.correct?'// CORRECT':'// INCORRECT';
+  el.innerHTML=`
+    <div class="card-top">
+      <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+      <span class="cat-badge" style="border-color:${q.color}55;color:${q.color}">${q.cat}</span>
+    </div>
+    <div class="card-body">
+      <div class="sc-lbl">// SCENARIO</div>
+      <div class="sc-text">${q.scenario}</div>
+      <div class="q-text">${q.q}</div>
+      <div class="choices">${choicesHTML}</div>
+      <div class="hint-area">
+        <button class="hint-btn" ${ans!==null||hin?'disabled':''} onclick="useHint()">${hin?'hint used (−30 pts)':'💡 hint (costs 30 pts)'}</button>
+        ${hin?`<div class="hint-text">${q.hint}</div>`:''}
+      </div>
+      <div class="${fbCls}">${fb?`<div class="fb-lbl">${fbLbl}</div>${q.explain}`:''}</div>
+    </div>`;
+}
+
+function pick(i){
+  if(answered[cur]!==null)return;
+  answered[cur]=i;
+  const q=cards[cur];
+  if(i===q.correct){
+    const base=hinted[cur]?70:100;
+    const bonus=streak>0?Math.min(streak*15,75):0;
+    score+=base+bonus;streak++;
+  } else {streak=0}
+  updateHUD();
+  buildCard(q,document.getElementById('card'));
+}
+
+function useHint(){
+  if(answered[cur]!==null||hinted[cur])return;
+  hinted[cur]=true;
+  buildCard(cards[cur],document.getElementById('card'));
+}
+
+function nextCard(){
+  if(cur<cards.length-1){cur++;renderCard(true)}else{showEnd()}
+}
+function prevCard(){
+  if(cur>0){cur--;renderCard(true)}
+}
+
+function updateHUD(){
+  document.getElementById('hs').textContent=score;
+  document.getElementById('hq').textContent=`${cur+1}/${cards.length}`;
+  document.getElementById('hstr').textContent=streak>1?`🔥 ${streak}x`:'';
+}
+
+function showEnd(){
+  show('endscreen');
+  document.getElementById('hud').style.display='none';
+  document.getElementById('prog').style.width='100%';
+  const correct=answered.filter((a,i)=>a===cards[i].correct).length;
+  document.getElementById('esc').textContent=score;
+  document.getElementById('ecor').textContent=correct;
+  document.getElementById('etot').textContent=cards.length;
+  const dots=document.getElementById('edots');
+  dots.innerHTML=answered.map((a,i)=>`<div class="ed ${a===null?'':a===cards[i].correct?'g':'r'}"></div>`).join('');
+  const p=correct/cards.length;
+  let t,m;
+  if(p===1){t="Flawless. You think like an attacker.";m="Perfect score. Every attack pattern identified. That's not luck — it's real pattern recognition."}
+  else if(p>=.75){t="Strong security instincts.";m="You know the landscape well. Review the ones you missed — the mechanics behind each mistake matter more than the score."}
+  else if(p>=.5){t="Solid foundation. Keep going.";m="You've got the concepts but some attack patterns are still fuzzy. Replay and focus on the scenarios you got wrong."}
+  else{t="Every expert started exactly here.";m="These are the foundations. SQL injection, XSS, CSRF, prompt injection. Replay until they feel obvious. Then they will be."}
+  document.getElementById('etitle').textContent=t;
+  document.getElementById('emsg').textContent=m;
+}
+
+function goSplash(){
+  window.removeEventListener('deviceorientation',handleTilt);
+  gyroOn=false;lastG=null;lastB=null;
+  show('splash');
+  document.getElementById('hud').style.display='none';
+  document.getElementById('prog').style.width='0%';
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='ArrowDown')nextCard();
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp')prevCard();
+});
+
+// reset card tilt when idle
+setInterval(()=>{
+  const w=document.getElementById('cwrap');
+  if(w&&gyroOn&&!tiltLock)w.style.transform='rotateX(0deg) rotateY(0deg)';
+},2500);
+</script>
+</body>
+</html>
